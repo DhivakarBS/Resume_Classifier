@@ -1,3 +1,77 @@
+import streamlit as st
+import pickle
+import fitz  # PyMuPDF
+import re
+import pandas as pd
+import plotly.express as px
+
+# 1. Load the Brain
+classifier = pickle.load(open('classifier.pkl', 'rb'))
+tfidf = pickle.load(open('tfidf.pkl', 'rb'))
+encoder = pickle.load(open('encoder.pkl', 'rb'))
+
+def clean_text(text):
+    text = re.sub(r'http\S+\s*', ' ', text)
+    text = re.sub(r'[^a-zA-Z\s]', ' ', text)
+    text = re.sub(r'\s+', ' ', text).strip()
+    return text.lower()
+
+# --- UI Setup ---
+st.set_page_config(page_title="AI Career Path Analyzer", page_icon="📊")
+st.title("📊 AI Career Path Analyzer")
+st.markdown("Upload your resume to see your professional 'DNA' across different fields.")
+
+uploaded_file = st.file_uploader("Upload Resume (PDF)", type=["pdf"])
+
+if uploaded_file is not None:
+    # PDF Extraction
+    with fitz.open(stream=uploaded_file.read(), filetype="pdf") as doc:
+        text = " ".join([page.get_text() for page in doc])
+    
+    cleaned_resume = clean_text(text)
+    input_features = tfidf.transform([cleaned_resume])
+    
+    # 2. Get Probabilities for ALL categories
+    # predict_proba gives the confidence score for every field in the dataset
+    probs = classifier.predict_proba(input_features)[0]
+    all_categories = encoder.classes_
+    
+    # Create a DataFrame for visualization
+    prob_df = pd.DataFrame({
+        'Field': all_categories,
+        'Probability': probs * 100
+    }).sort_values(by='Probability', ascending=False)
+
+    # 3. Display Top Result
+    top_field = prob_df.iloc[0]['Field']
+    top_score = prob_df.iloc[0]['Probability']
+    
+    st.success(f"Primary Identity: **{top_field}** ({top_score:.1f}%)")
+
+    # 4. Show the Probability Chart
+    # We only show the top 8 fields to keep the chart clean
+    fig = px.bar(prob_df.head(8), x='Probability', y='Field', orientation='h',
+                 title="Professional Skill Distribution",
+                 color='Probability', color_continuous_scale='Blues')
+    
+    fig.update_layout(yaxis={'categoryorder':'total ascending'})
+    st.plotly_chart(fig)
+
+    # 5. Skill Highlights based on your actual projects
+    st.write("### 🛠️ Key Technical Assets Detected:")
+    cols = st.columns(2)
+    with cols[0]:
+        st.write("**AI/ML Strength**")
+        # Checking for your specific CV keywords
+        if 'tensorflow' in cleaned_resume or 'pytorch' in cleaned_resume:
+            st.code("Deep Learning Specialist (BioLens/AURA)")
+    with cols[1]:
+        st.write("**Software Strength**")
+        if 'django' in cleaned_resume or 'html' in cleaned_resume:
+            st.code("Full-Stack Capable (Event App)")
+
+
+
 # import streamlit as st
 # import pickle
 # import fitz  # PyMuPDF
@@ -71,74 +145,3 @@
 
 
 
-import streamlit as st
-import pickle
-import fitz  # PyMuPDF
-import re
-import pandas as pd
-import plotly.express as px
-
-# 1. Load the Brain
-classifier = pickle.load(open('classifier.pkl', 'rb'))
-tfidf = pickle.load(open('tfidf.pkl', 'rb'))
-encoder = pickle.load(open('encoder.pkl', 'rb'))
-
-def clean_text(text):
-    text = re.sub(r'http\S+\s*', ' ', text)
-    text = re.sub(r'[^a-zA-Z\s]', ' ', text)
-    text = re.sub(r'\s+', ' ', text).strip()
-    return text.lower()
-
-# --- UI Setup ---
-st.set_page_config(page_title="AI Career Path Analyzer", page_icon="📊")
-st.title("📊 AI Career Path Analyzer")
-st.markdown("Upload your resume to see your professional 'DNA' across different fields.")
-
-uploaded_file = st.file_uploader("Upload Resume (PDF)", type=["pdf"])
-
-if uploaded_file is not None:
-    # PDF Extraction
-    with fitz.open(stream=uploaded_file.read(), filetype="pdf") as doc:
-        text = " ".join([page.get_text() for page in doc])
-    
-    cleaned_resume = clean_text(text)
-    input_features = tfidf.transform([cleaned_resume])
-    
-    # 2. Get Probabilities for ALL categories
-    # predict_proba gives the confidence score for every field in the dataset
-    probs = classifier.predict_proba(input_features)[0]
-    all_categories = encoder.classes_
-    
-    # Create a DataFrame for visualization
-    prob_df = pd.DataFrame({
-        'Field': all_categories,
-        'Probability': probs * 100
-    }).sort_values(by='Probability', ascending=False)
-
-    # 3. Display Top Result
-    top_field = prob_df.iloc[0]['Field']
-    top_score = prob_df.iloc[0]['Probability']
-    
-    st.success(f"Primary Identity: **{top_field}** ({top_score:.1f}%)")
-
-    # 4. Show the Probability Chart
-    # We only show the top 8 fields to keep the chart clean
-    fig = px.bar(prob_df.head(8), x='Probability', y='Field', orientation='h',
-                 title="Professional Skill Distribution",
-                 color='Probability', color_continuous_scale='Blues')
-    
-    fig.update_layout(yaxis={'categoryorder':'total ascending'})
-    st.plotly_chart(fig)
-
-    # 5. Skill Highlights based on your actual projects
-    st.write("### 🛠️ Key Technical Assets Detected:")
-    cols = st.columns(2)
-    with cols[0]:
-        st.write("**AI/ML Strength**")
-        # Checking for your specific CV keywords
-        if 'tensorflow' in cleaned_resume or 'pytorch' in cleaned_resume:
-            st.code("Deep Learning Specialist (BioLens/AURA)")
-    with cols[1]:
-        st.write("**Software Strength**")
-        if 'django' in cleaned_resume or 'html' in cleaned_resume:
-            st.code("Full-Stack Capable (Event App)")
