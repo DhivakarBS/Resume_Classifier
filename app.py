@@ -16,7 +16,6 @@ def clean_text(text):
     text = re.sub(r'\s+', ' ', text).strip()
     return text.lower()
 
-# --- UI Setup ---
 st.set_page_config(page_title="AI Career Path Analyzer", page_icon="📊")
 st.title("📊 AI Career Path Analyzer")
 st.markdown("Upload your resume to see your professional 'DNA' across different fields.")
