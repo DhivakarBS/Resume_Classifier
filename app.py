@@ -30,7 +30,6 @@ if uploaded_file is not None:
     cleaned_resume = clean_text(text)
     input_features = tfidf.transform([cleaned_resume])
     
-    # 2. Get Probabilities for ALL categories
     # predict_proba gives the confidence score for every field in the dataset
     probs = classifier.predict_proba(input_features)[0]
     all_categories = encoder.classes_
